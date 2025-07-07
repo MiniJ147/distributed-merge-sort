@@ -234,34 +234,44 @@ def is_sorted():
             return False
     return True
 
-# assert len(sys.argv) == 3, "not right amount of inputs {threads} {arr_size}"
-# MAX_THREADS = int(sys.argv[1])
-# INPUT_SIZE = int(sys.argv[2])
-# INPUT_ARR = [INPUT_SIZE-i for i in range(INPUT_SIZE)] # generating unsorted array
+if len(sys.argv) != 3:
+    c,v = 0,1
+    for i in range(4,10**5):
+        INPUT_SIZE = i# input size
+        INPUT_ARR = [INPUT_SIZE-i for i in range(INPUT_SIZE)] # generating unsorted array
+        x = SortTree(INPUT_SIZE)
+        assert is_sorted()==False, i
+        x.sort(INPUT_ARR)
+        # print(INPUT_ARR)
+        assert is_sorted()==True, i
+        if c==1000:
+            print("passed:",c*v)
+            c = 0
+            v += 1
+        c+=1
+    # print("passed,",i)
+    print("passed tests")
+    exit()
 
-# print(f"running sort-tree with {MAX_THREADS} threads and {INPUT_SIZE} elements")
-# x = SortTree(INPUT_SIZE)
+MAX_THREADS = int(sys.argv[1])
+INPUT_SIZE = int(sys.argv[2])
+INPUT_ARR = [INPUT_SIZE-i for i in range(INPUT_SIZE)] # generating unsorted array
+
+print(f"running sort-tree with {MAX_THREADS} threads and {INPUT_SIZE} elements")
+x = SortTree(INPUT_SIZE)
 # for i,n in enumerate(x.node_arr):
 #     print(i,n.left,n.right,n.is_leaf)
 
-# assert is_sorted() == False
-# x.sort(INPUT_ARR)
-# assert is_sorted() == True
-# print("passed!")
-c,v = 0,1
-for i in range(4,10**5):
-    INPUT_SIZE = i# input size
-    INPUT_ARR = [INPUT_SIZE-i for i in range(INPUT_SIZE)] # generating unsorted array
-    x = SortTree(INPUT_SIZE)
-    assert is_sorted()==False, i
-    x.sort(INPUT_ARR)
-    # print(INPUT_ARR)
-    assert is_sorted()==True, i
-    if c==1000:
-        print("passed:",c*v)
-        c = 0
-        v += 1
-    c+=1
-    # print("passed,",i)
-print("passed tests")
+assert is_sorted() == False
+x.sort(INPUT_ARR)
+assert is_sorted() == True
+print("passed!")
+
+INPUT_ARR[3] = INPUT_ARR[0]
+print(INPUT_ARR)
+assert is_sorted() == False
+x.sort(INPUT_ARR)
+assert is_sorted() == True
+print("passed twice")
+print(INPUT_ARR)
 #
