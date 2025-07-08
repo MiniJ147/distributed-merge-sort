@@ -177,7 +177,10 @@ while(true) // eventually get this to kill when deconstructed
         }
 
         // now doing merge sort
-        std::vector<int> temp_arr;
+        uint8_t BUFFER = 8;
+        // std::vector<int> temp_arr;
+        std::vector<int> temp_arr((curr_node->right-curr_node->left)+BUFFER);
+        auto& sort_vec_ref = *sort_vec;
 
         int mid;
         // since we don't have an algorithm on a leaf we can just take the true mid
@@ -192,25 +195,34 @@ while(true) // eventually get this to kill when deconstructed
         // applying typical merge sort
         int i = curr_node->left;
         int j = mid+1;
+        int k = 0;
 
         while(i<=mid && j<=curr_node->right){
-            if(sort_vec->at(i) <= sort_vec->at(j)){
-                temp_arr.push_back(sort_vec->at(i));
+            if(sort_vec_ref[i] <= sort_vec_ref[j]){
+                // temp_arr.push_back(sort_vec->at(i));
+                temp_arr[k] = sort_vec_ref[i];
                 i += 1;
+                k++;
             }else{
-                temp_arr.push_back(sort_vec->at(j));
+                // temp_arr.push_back(sort_vec->at(j));
+                temp_arr[k] = sort_vec_ref[j];
                 j+=1;
+                k++;
             }
         }
 
         while(i<=mid){
-            temp_arr.push_back(sort_vec->at(i));
+            // temp_arr.push_back(sort_vec->at(i));
+            temp_arr[k] = sort_vec_ref[i];
             i+=1;
+            k++;
         }
 
         while(j<=curr_node->right){
-            temp_arr.push_back(sort_vec->at(j));
+            // temp_arr.push_back(sort_vec->at(j));
+            temp_arr[k] = sort_vec_ref[j];
             j+=1;
+            k++;
         }
 
 
