@@ -1,5 +1,6 @@
 #include "merge_sort.h"
 #include <assert.h>
+#include <math.h>
 #include <iostream>
 
 using namespace DISTRIBUTED::SORT;
@@ -263,12 +264,29 @@ SortTree::SortTree(int max_array_size, int num_threads)
     //     track,n.left,n.right,n.is_leaf);
     //     track++;
     // }
+    int iter = 0;
+    int inc = 1;
+    if(num_threads>=num_leaves){
+        iter = num_leaves; // num_leaves is our min
+    }else{
+        // num_leaves > num_threads
+        iter = num_threads;
+        inc = num_leaves/num_threads; // int division floor()
+    }
 
-    for(int id=0; id<num_threads; id++){
-        int start_leaf = (num_nodes-num_leaves)+id+1;
+    int track = 0;
+    for(int i=0; i<iter; i++){
+        int start_leaf = (num_nodes-num_leaves)+track+1;
+        // std::cout<<"spawning thread "<<start_leaf<< " leaves "<<num_leaves<<std::endl;
+        track += inc;
         this->threads.emplace_back(
             std::thread(&SortTree::per_thread_sort, this, start_leaf));
     }
+    // for(int id=0; id<num_threads; id++){
+    //     int start_leaf = (num_nodes-num_leaves)+id+1;
+    //     this->threads.emplace_back(
+    //         std::thread(&SortTree::per_thread_sort, this, start_leaf));
+    // }
 };
 
 void SortTree::sort(std::vector<int>* vec){
