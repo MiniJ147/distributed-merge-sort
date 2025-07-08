@@ -8,10 +8,15 @@ using namespace DISTRIBUTED::SORT;
 // helper
 
 inline void build_node(Node* node, int left, int right){
+    constexpr uint8_t TEMP_ARR_BUFFER = 8;
+
+    // writing values
     node->left = left;
     node->right = right;
     node->is_leaf = right-left <= 1;
     node->sort_snapshot = -1;
+    node->temp_arr_snapshot = -1;
+    node->temp_arr = new int[(right-left)+TEMP_ARR_BUFFER];
 }
 
 // private functions
@@ -135,6 +140,7 @@ while(true) // eventually get this to kill when deconstructed
 {
     // std::cout<<"thread starting on "<<start_node_idx<<std::endl;
     // wait
+    auto& sort_vec_ref = *sort_vec; // grabbing our reference
     std::unique_lock<std::mutex> lck(this->cv_mtx);
 
     // prev_sort iter is given before our loop
@@ -163,26 +169,15 @@ while(true) // eventually get this to kill when deconstructed
         }
 
         // attempting sort
+
+        // check if we've already sorted this node
         if(curr_node->sort_snapshot == this->sort_iteration){
             curr_idx = (curr_idx>>1); // go up
             continue;
         }
 
-        // taking control of the node
-        curr_node->mtx.lock();
+        // LOCK_FREE VERSION
         
-        if(curr_node->sort_snapshot == this->sort_iteration){
-            curr_idx = (curr_idx>>1); // go up
-            curr_node->mtx.unlock();
-            continue;
-        }
-
-        // now doing merge sort
-        uint8_t BUFFER = 8;
-        // std::vector<int> temp_arr;
-        std::vector<int> temp_arr((curr_node->right-curr_node->left)+BUFFER);
-        auto& sort_vec_ref = *sort_vec;
-
         int mid;
         // since we don't have an algorithm on a leaf we can just take the true mid
         if(curr_node->is_leaf){
@@ -198,42 +193,140 @@ while(true) // eventually get this to kill when deconstructed
         int j = mid+1;
         int k = 0;
 
-        while(i<=mid && j<=curr_node->right){
+        // std::cout<<sort_iteration<<" "<<curr_node->temp_arr_snapshot<<std::endl;
+        // ensure our sort iteration is correct
+        while(i<=mid&& j<=curr_node->right && curr_node->temp_arr_snapshot<sort_iteration)
+        {
+            int i_inc = 0;
+            int j_inc = 0;
+            int new_val = 0;
+
             if(sort_vec_ref[i] <= sort_vec_ref[j]){
-                // temp_arr.push_back(sort_vec->at(i));
-                temp_arr[k] = sort_vec_ref[i];
-                i += 1;
-                k++;
+                new_val = sort_vec_ref[i];
+                i_inc = 1;
             }else{
-                // temp_arr.push_back(sort_vec->at(j));
-                temp_arr[k] = sort_vec_ref[j];
+                new_val = sort_vec_ref[j];
+                j_inc = 1;
+            }   
+
+            // someone already filled our temp_arr
+            if(curr_node->temp_arr_snapshot<sort_iteration){
+                // std::cout<<"someone already sorted\n";
+                //write changes
+                curr_node->temp_arr[k] = new_val;
+                i += i_inc;
+                j += j_inc;
+                k++;
+            }
+        }
+
+        while(i<=mid && curr_node->temp_arr_snapshot<sort_iteration){
+            int new_val = sort_vec_ref[i];
+
+            // no on has filled our temp array our fetch is valid
+            if(curr_node->temp_arr_snapshot<sort_iteration){
+                // write changes
+                curr_node->temp_arr[k] = new_val;
+                i+=1;
+                k++;
+            }
+        }
+
+        while(j<=curr_node->right && curr_node->temp_arr_snapshot<sort_iteration){
+            int new_val = sort_vec_ref[j];
+
+            // someone already filled our temp_arr
+            if(curr_node->temp_arr_snapshot<sort_iteration){ 
+                //write changes
+                curr_node->temp_arr[k] = new_val;
                 j+=1;
                 k++;
             }
         }
 
-        while(i<=mid){
-            // temp_arr.push_back(sort_vec->at(i));
-            temp_arr[k] = sort_vec_ref[i];
-            i+=1;
-            k++;
-        }
+        curr_node->temp_arr_snapshot = sort_iteration;
+        int temp_arr_size = (curr_node->right-curr_node->left)+1;
 
-        while(j<=curr_node->right){
-            // temp_arr.push_back(sort_vec->at(j));
-            temp_arr[k] = sort_vec_ref[j];
-            j+=1;
-            k++;
-        }
+        // std::cout<<"done sorting "<<k<<"\n";
+        // for(int i=0; i<temp_arr_size; i++){
+        //     std::cout<<curr_node->temp_arr[i]<<", ";
+        // }
+        // std::cout<<"temp arr\n";
 
-
-        for(int i=0; i<temp_arr.size();i++){
-            (*sort_vec)[curr_node->left+i] = temp_arr[i]; 
+        for(int i=0; i<temp_arr_size && curr_node->sort_snapshot<sort_iteration;i++){
+            (*sort_vec)[curr_node->left+i] = curr_node->temp_arr[i]; 
         }
 
         curr_node->sort_snapshot = this->sort_iteration;
-        curr_node->mtx.unlock();
         curr_idx = (curr_idx>>1);
+
+        // // taking control of the node
+        // // LOCK VERSION
+        // curr_node->mtx.lock();
+        
+        // if(curr_node->sort_snapshot == this->sort_iteration){
+        //     curr_idx = (curr_idx>>1); // go up
+        //     curr_node->mtx.unlock();
+        //     continue;
+        // }
+
+        // // now doing merge sort
+        // uint8_t BUFFER = 8;
+        // // std::vector<int> temp_arr;
+        // std::vector<int> temp_arr((curr_node->right-curr_node->left)+BUFFER);
+        // auto& sort_vec_ref = *sort_vec;
+
+        // int mid;
+        // // since we don't have an algorithm on a leaf we can just take the true mid
+        // if(curr_node->is_leaf){
+        //     mid = (curr_node->left + curr_node->right)>>1;
+        // }else{
+        //     // we are in an internal node
+        //     // we pull left node's max value since that is our mid
+        //     mid = this->nodes[(curr_idx<<1)].right;
+        // }
+
+        // // applying typical merge sort
+        // int i = curr_node->left;
+        // int j = mid+1;
+        // int k = 0;
+
+        // while(i<=mid && j<=curr_node->right){
+        //     if(sort_vec_ref[i] <= sort_vec_ref[j]){
+        //         // temp_arr.push_back(sort_vec->at(i));
+        //         temp_arr[k] = sort_vec_ref[i];
+        //         i += 1;
+        //         k++;
+        //     }else{
+        //         // temp_arr.push_back(sort_vec->at(j));
+        //         temp_arr[k] = sort_vec_ref[j];
+        //         j+=1;
+        //         k++;
+        //     }
+        // }
+
+        // while(i<=mid){
+        //     // temp_arr.push_back(sort_vec->at(i));
+        //     temp_arr[k] = sort_vec_ref[i];
+        //     i+=1;
+        //     k++;
+        // }
+
+        // while(j<=curr_node->right){
+        //     // temp_arr.push_back(sort_vec->at(j));
+        //     temp_arr[k] = sort_vec_ref[j];
+        //     j+=1;
+        //     k++;
+        // }
+
+
+        // for(int i=0; i<temp_arr.size();i++){
+        //     (*sort_vec)[curr_node->left+i] = temp_arr[i]; 
+        // }
+
+        // curr_node->sort_snapshot = this->sort_iteration;
+        // curr_node->mtx.unlock();
+        // curr_idx = (curr_idx>>1);
     }
 
     thread_sort_iter = this->sort_iteration; // upgrade sort iter
@@ -297,3 +390,24 @@ void SortTree::sort(std::vector<int>* vec){
     // wait until sorted
     while(nodes[1].sort_snapshot != sort_iteration){}
 };
+
+/*
+bool process
+while(true){
+    if(try_lock())
+        process = true
+        break
+    
+    if(node.process_snapshot<curr_snapshot) // spurious fail
+        retry
+    
+    process = false // someone has the node skip over
+}
+
+// lockfree
+shared s_temp_arr
+
+while(i < mid){
+
+}
+*/

@@ -45,8 +45,12 @@ int main(int argc, char* argv[]){
     std::cout<<"Threads: "<<threads<<"\tInput: "<<input<<"\tTotal Time: "<<duration.count()<<"ms\n";
 
     for(int i=1;i<nums.size();i++){
+        // std::cout<<nums[i-1]<<", "<<nums[i];
         assert(nums[i-1]<=nums[i]);
     }
+    // std::cout<<std::endl;
+
+    // std::cout<<"dont crash yet\n";
 
     return 0;
 }
