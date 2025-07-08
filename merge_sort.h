@@ -21,8 +21,8 @@ struct Node {
     int* temp_arr; // shared temp array
     int left = -1; // left array bound [inclusive]
     int right = -1; // right array idx bound [inclusive]
-    int sort_snapshot = -1; // nodes last time sorted
-    int temp_arr_snapshot = -1; // temp array snapshot
+    int sort_snapshot = 0; // nodes last time sorted
+    int temp_arr_snapshot = 0; // temp array snapshot
     int is_leaf = 0; // boolean (is leaf)
     std::mutex mtx;
 };

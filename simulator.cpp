@@ -48,7 +48,7 @@ int main(int argc, char* argv[]){
         // std::cout<<nums[i-1]<<", "<<nums[i];
         assert(nums[i-1]<=nums[i]);
     }
-    // std::cout<<std::endl;
+    std::cout<<std::endl;
 
     // std::cout<<"dont crash yet\n";
 
